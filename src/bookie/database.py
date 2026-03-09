@@ -2,11 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from .settings import settings
@@ -20,7 +16,7 @@ class Base(DeclarativeBase):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # type: ignore[misc]
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
     await engine.dispose()
 
