@@ -42,7 +42,11 @@ async def get_all_bookmarks(session: AsyncSession) -> Sequence[Bookmark]:
 
 
 async def get_bookmark(session: AsyncSession, bookmark_id: UUID) -> Bookmark | None:
-    result = await session.execute(select(Bookmark).where(Bookmark.id == bookmark_id))
+    result = await session.execute(
+        select(Bookmark)
+        .where(Bookmark.id == bookmark_id)
+        .options(selectinload(Bookmark.tags))
+    )
     return result.scalar_one_or_none()
 
 
