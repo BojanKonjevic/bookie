@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Table, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .database import Base
+from bookie.database import Base
 
 bookmark_tags = Table(
     "bookmark_tags",
@@ -24,7 +24,9 @@ class Bookmark(Base):
     title: Mapped[str] = mapped_column(String)
     url: Mapped[str] = mapped_column(String, unique=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
-    favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+    favorite: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
