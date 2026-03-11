@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TagBase(BaseModel):
@@ -15,7 +15,7 @@ class TagRead(TagBase):
 
 class BookmarkBase(BaseModel):
     title: str
-    url: HttpUrl
+    url: str
     favorite: bool = False
     description: str | None = None
 
@@ -33,7 +33,7 @@ class BookmarkRead(BookmarkBase):
 
 class BookmarkUpdate(BaseModel):
     title: str | None = None
-    url: HttpUrl | None = None
+    url: str | None = None
     favorite: bool | None = None
     description: str | None = None
     tags: list[str] | None = None

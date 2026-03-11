@@ -30,7 +30,7 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
 
     session.add(db_bookmark)
     await session.commit()
-    await session.refresh(db_bookmark)
+    await session.refresh(db_bookmark, ["tags"])
     return db_bookmark
 
 

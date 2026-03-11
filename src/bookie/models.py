@@ -31,7 +31,7 @@ class Bookmark(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     tags: Mapped[list[Tag]] = relationship(
-        secondary=bookmark_tags, back_populates="bookmarks"
+        secondary=bookmark_tags, back_populates="bookmarks", lazy="selectin"
     )
 
 
