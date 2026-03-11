@@ -21,11 +21,11 @@ bookmark_tags = Table(
 class Bookmark(Base):
     __tablename__ = "bookmarks"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    title: Mapped[str] = mapped_column(String)
-    url: Mapped[str] = mapped_column(String, unique=True)
-    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String(255), index=True)
+    url: Mapped[str] = mapped_column(String(2048), unique=True)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     favorite: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
+        Boolean, default=False, server_default="false", index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -38,7 +38,7 @@ class Bookmark(Base):
 class Tag(Base):
     __tablename__ = "tags"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     bookmarks: Mapped[list[Bookmark]] = relationship(
         secondary=bookmark_tags, back_populates="tags"
     )

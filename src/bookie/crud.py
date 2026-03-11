@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,7 +22,7 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
 
     db_bookmark = Bookmark(
         title=bookmark.title,
-        url=bookmark.url,
+        url=str(bookmark.url),
         description=bookmark.description,
         favorite=bookmark.favorite,
         tags=tags,
@@ -34,10 +34,27 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
     return db_bookmark
 
 
-async def get_all_bookmarks(session: AsyncSession) -> Sequence[Bookmark]:
-    result = await session.execute(
-        select(Bookmark).options(selectinload(Bookmark.tags))
-    )
+async def get_all_bookmarks(
+    session: AsyncSession,
+    favorite: bool | None = None,
+    tag_names: Sequence[str] | None = None,
+    search: str | None = None,
+    page: int = 1,
+    limit: int = 10,
+) -> Sequence[Bookmark]:
+    query = select(Bookmark).options(selectinload(Bookmark.tags))
+    if favorite is not None:
+        query = query.where(Bookmark.favorite == favorite)
+    if tag_names is not None:
+        query = query.where(Bookmark.tags.any(Tag.name.in_(tag_names)))
+    if search is not None:
+        query = query.where(
+            or_(
+                Bookmark.title.ilike(f"%{search}%"),
+                Bookmark.description.ilike(f"%{search}%"),
+            )
+        )
+    result = await session.execute(query.offset((page - 1) * limit).limit(limit))
     return result.scalars().all()
 
 
@@ -79,9 +96,18 @@ async def update_bookmark(
 
 
 async def delete_bookmark(session: AsyncSession, bookmark_id: UUID) -> bool:
-    db_bookmark = await session.get(Bookmark, bookmark_id)
+    db_bookmark = (
+        await session.execute(
+            select(Bookmark)
+            .where(Bookmark.id == bookmark_id)
+            .options(selectinload(Bookmark.tags).selectinload(Tag.bookmarks))
+        )
+    ).scalar_one_or_none()
     if not db_bookmark:
         return False
+    for tag in db_bookmark.tags:
+        if len(tag.bookmarks) == 1:
+            await session.delete(tag)
     await session.delete(db_bookmark)
     await session.commit()
     return True

@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bookie import crud, schemas
@@ -13,9 +13,14 @@ router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
 @router.get("", response_model=Sequence[schemas.BookmarkRead])
 async def get_all_bookmarks(
+    favorite: bool | None = Query(default=None),
+    tags: Sequence[str] | None = Query(default=None),
+    search: str | None = Query(default=None),
+    page: int = Query(default=1),
+    limit: int = Query(default=10),
     session: AsyncSession = Depends(get_session),
 ) -> Sequence[Bookmark]:
-    return await crud.get_all_bookmarks(session)
+    return await crud.get_all_bookmarks(session, favorite, tags, search, page, limit)
 
 
 @router.get("/{bookmark_id}", response_model=schemas.BookmarkRead)
