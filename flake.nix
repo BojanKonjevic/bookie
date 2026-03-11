@@ -37,6 +37,10 @@
           ruff
           mypy
           ipython
+
+          # CLI
+          typer
+          rich
         ]);
     in {
       devShells.default = pkgs.mkShell {
@@ -58,7 +62,7 @@
             pre-commit install >/dev/null 2>&1 || true
           fi
 
-          
+
           echo "Commands:"
           echo "  just test                    run tests"
           echo "  just cov                     coverage"
@@ -70,6 +74,11 @@
           echo "  just upgrade                 apply migrations"
           echo "  just downgrade               roll back one step"
           echo "  just db-drop                 delete the local database"
+          echo
+          echo "CLI:"
+          echo "  python cli.py --help               show all commands"
+          echo "  python cli.py ping                 check the API is up"
+          echo "  python cli.py bookmarks list       list bookmarks"
           echo
           exec zsh
         '';
