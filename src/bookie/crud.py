@@ -74,6 +74,8 @@ async def update_bookmark(
     if not db_bookmark:
         return None
     update_data = bookmark_update.model_dump(exclude_unset=True)
+    if "url" in update_data:
+        update_data["url"] = str(update_data["url"])
 
     tags = update_data.pop("tags", None)
     if tags is not None:
