@@ -14,7 +14,7 @@ class TagRead(TagBase):
 
 
 class BookmarkBase(BaseModel):
-    title: str
+    title: str = Field(min_length=1)
     url: HttpUrl
     favorite: bool = False
     description: str | None = None

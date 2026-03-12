@@ -22,5 +22,5 @@ async def get_tag(
 ) -> Tag | None:
     tag = await crud.get_tag(session, tag_id)
     if tag is None:
-        raise HTTPException(status_code=404, detail="Bookmark doesn't exist")
+        raise HTTPException(status_code=404, detail="Tag doesn't exist")
     return tag

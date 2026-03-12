@@ -16,8 +16,8 @@ async def get_all_bookmarks(
     favorite: bool | None = Query(default=None),
     tags: Sequence[str] | None = Query(default=None),
     search: str | None = Query(default=None),
-    page: int = Query(default=1),
-    limit: int = Query(default=10),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=10, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ) -> Sequence[Bookmark]:
     return await crud.get_all_bookmarks(session, favorite, tags, search, page, limit)
@@ -33,7 +33,7 @@ async def get_bookmark(
     return bookmark
 
 
-@router.post("", response_model=schemas.BookmarkRead)
+@router.post("", response_model=schemas.BookmarkRead, status_code=201)
 async def create_bookmark(
     bookmark: schemas.BookmarkCreate, session: AsyncSession = Depends(get_session)
 ) -> Bookmark:

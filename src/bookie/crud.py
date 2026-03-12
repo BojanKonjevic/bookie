@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -29,7 +30,11 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
     )
 
     session.add(db_bookmark)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as err:
+        await session.rollback()
+        raise ValueError("URL already exists") from err
     await session.refresh(db_bookmark, ["tags"])
     return db_bookmark
 
@@ -93,7 +98,7 @@ async def update_bookmark(
     for field, value in update_data.items():
         setattr(db_bookmark, field, value)
     await session.commit()
-    await session.refresh(db_bookmark)
+    await session.refresh(db_bookmark, ["tags"])
     return db_bookmark
 
 
