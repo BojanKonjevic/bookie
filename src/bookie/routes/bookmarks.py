@@ -37,7 +37,10 @@ async def get_bookmark(
 async def create_bookmark(
     bookmark: schemas.BookmarkCreate, session: AsyncSession = Depends(get_session)
 ) -> Bookmark:
-    return await crud.create_bookmark(session, bookmark)
+    try:
+        return await crud.create_bookmark(session, bookmark)
+    except ValueError as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err
 
 
 @router.delete("/{bookmark_id}", status_code=204)
