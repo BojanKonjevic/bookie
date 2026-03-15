@@ -54,6 +54,7 @@ async def test_login(anon_client: AsyncClient) -> None:
 
     data = response.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["token_type"] == "bearer"
 
 
@@ -124,3 +125,77 @@ async def test_users_cannot_see_each_others_bookmarks(
     response = await anon_client.get("/bookmarks")
     assert response.status_code == 200
     assert response.json() == []
+
+
+# ─── POST /auth/refresh ───────────────────────────────────────────────────────
+
+
+async def test_refresh(anon_client: AsyncClient) -> None:
+    await anon_client.post("/auth/register", json=TEST_USER)
+    token_resp = await anon_client.post(
+        "/auth/token",
+        data={"username": TEST_USER["email"], "password": TEST_USER["password"]},
+    )
+    refresh_token = token_resp.json()["refresh_token"]
+
+    response = await anon_client.post(
+        "/auth/refresh", json={"refresh_token": refresh_token}
+    )
+
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
+async def test_refresh_invalid_token(anon_client: AsyncClient) -> None:
+    response = await anon_client.post(
+        "/auth/refresh", json={"refresh_token": "not-a-real-token"}
+    )
+    assert response.status_code == 401
+
+
+async def test_refresh_revoked_token(anon_client: AsyncClient) -> None:
+    await anon_client.post("/auth/register", json=TEST_USER)
+    token_resp = await anon_client.post(
+        "/auth/token",
+        data={"username": TEST_USER["email"], "password": TEST_USER["password"]},
+    )
+    refresh_token = token_resp.json()["refresh_token"]
+
+    await anon_client.post("/auth/logout", json={"refresh_token": refresh_token})
+
+    response = await anon_client.post(
+        "/auth/refresh", json={"refresh_token": refresh_token}
+    )
+    assert response.status_code == 401
+
+
+# ─── POST /auth/logout ────────────────────────────────────────────────────────
+
+
+async def test_logout(anon_client: AsyncClient) -> None:
+    await anon_client.post("/auth/register", json=TEST_USER)
+    token_resp = await anon_client.post(
+        "/auth/token",
+        data={"username": TEST_USER["email"], "password": TEST_USER["password"]},
+    )
+    refresh_token = token_resp.json()["refresh_token"]
+
+    response = await anon_client.post(
+        "/auth/logout", json={"refresh_token": refresh_token}
+    )
+    assert response.status_code == 204
+
+
+async def test_logout_idempotent(anon_client: AsyncClient) -> None:
+    await anon_client.post("/auth/register", json=TEST_USER)
+    token_resp = await anon_client.post(
+        "/auth/token",
+        data={"username": TEST_USER["email"], "password": TEST_USER["password"]},
+    )
+    refresh_token = token_resp.json()["refresh_token"]
+
+    await anon_client.post("/auth/logout", json={"refresh_token": refresh_token})
+    response = await anon_client.post(
+        "/auth/logout", json={"refresh_token": refresh_token}
+    )
+    assert response.status_code == 204
