@@ -41,6 +41,19 @@ class User(Base):
     )
 
 
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE")
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+
+
 class Bookmark(Base):
     __tablename__ = "bookmarks"
     __table_args__ = (

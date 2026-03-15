@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
@@ -24,6 +25,10 @@ def create_access_token(user_id: UUID) -> str:
     return cast(
         str, jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
     )
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(64)
 
 
 def decode_access_token(token: str) -> UUID | None:

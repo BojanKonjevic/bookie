@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import or_, select
@@ -6,10 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from bookie.models import Bookmark, Tag, User
+from bookie.models import Bookmark, RefreshToken, Tag, User
 from bookie.schemas import BookmarkCreate, BookmarkUpdate
-
-from .security import hash_password
+from bookie.security import generate_refresh_token, hash_password
+from bookie.settings import settings
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
@@ -28,6 +29,35 @@ async def create_user(session: AsyncSession, email: str, password: str) -> User:
     await session.commit()
     await session.refresh(user)
     return user
+
+
+async def create_refresh_token(session: AsyncSession, user_id: UUID) -> RefreshToken:
+    token = RefreshToken(
+        token=generate_refresh_token(),
+        user_id=user_id,
+        expires_at=datetime.now(UTC)
+        + timedelta(days=settings.refresh_token_expire_days),
+    )
+    session.add(token)
+    await session.commit()
+    await session.refresh(token)
+    return token
+
+
+async def get_refresh_token(session: AsyncSession, token: str) -> RefreshToken | None:
+    result = await session.execute(
+        select(RefreshToken).where(RefreshToken.token == token)
+    )
+    return result.scalar_one_or_none()
+
+
+async def revoke_refresh_token(session: AsyncSession, token: str) -> bool:
+    db_token = await get_refresh_token(session, token)
+    if db_token is None:
+        return False
+    db_token.revoked = True
+    await session.commit()
+    return True
 
 
 async def create_bookmark(
