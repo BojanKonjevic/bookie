@@ -1,6 +1,6 @@
 # bookie
 
-A self-hosted bookmark manager REST API. Save URLs, tag them, mark favorites, and search — all over a clean HTTP interface.
+A self-hosted bookmark manager REST API. Save URLs, tag them, mark favorites, and search — all over a clean HTTP interface, with per-user data isolation via JWT authentication.
 
 Built with **FastAPI**, **SQLAlchemy (async)**, and **PostgreSQL**, with a Nix-powered dev environment so setup is fully reproducible.
 
@@ -8,9 +8,10 @@ Built with **FastAPI**, **SQLAlchemy (async)**, and **PostgreSQL**, with a Nix-p
 
 ## Features
 
+- **Auth** — register, log in, and receive a JWT access token; all data is scoped to the authenticated user
 - **CRUD for bookmarks** — create, read, update, and delete bookmarks with title, URL, and optional description
 - **Favorites** — flag any bookmark for quick retrieval
-- **Tags** — attach multiple tags to bookmarks; tags are created automatically on first use
+- **Tags** — attach multiple tags to bookmarks; tags are created automatically on first use and are per-user
 - **Filtering & search** — filter by favorite status, one or more tags, or a search string; results are paginated
 - **Async throughout** — fully async stack (asyncpg + SQLAlchemy async sessions)
 - **Auto-generated docs** — FastAPI provides interactive Swagger UI out of the box at `/docs`
@@ -26,6 +27,7 @@ Built with **FastAPI**, **SQLAlchemy (async)**, and **PostgreSQL**, with a Nix-p
 | Database | PostgreSQL (asyncpg driver) |
 | Migrations | Alembic |
 | Validation | Pydantic v2 |
+| Auth | JWT (python-jose) + bcrypt (passlib) |
 | Dev environment | Nix flake |
 | Task runner | just |
 | Linting / formatting | Ruff |
@@ -55,16 +57,17 @@ This installs all dependencies and activates pre-commit hooks automatically.
 cp .env.example .env
 ```
 
-Edit `.env` if needed. For a local PostgreSQL database using peer auth, the default is fine:
+Edit `.env`. The database URL default is fine for local peer auth. Set a real secret key:
 
 ```env
 DATABASE_URL=postgresql+asyncpg:///bookie
+SECRET_KEY=your-long-random-secret-key
 ```
 
-For a remote or production database, replace the URL:
+Generate a secure key with:
 
-```env
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/dbname
+```bash
+openssl rand -hex 32
 ```
 
 ### 3. Apply database migrations
@@ -83,7 +86,41 @@ The API will be available at `http://localhost:8000`. Visit `http://localhost:80
 
 ---
 
+## Authentication
+
+All bookmark and tag endpoints require authentication. The flow is:
+
+1. **Register** — `POST /auth/register` with an email and password
+2. **Log in** — `POST /auth/token` to receive a JWT access token
+3. **Authorize** — send the token as a `Bearer` header on subsequent requests
+
+In the Swagger UI, use the **Authorize** button (top right) to log in and have the token attached automatically.
+
+Tokens expire after 30 minutes by default (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES` in `.env`).
+
+---
+
 ## API Reference
+
+### Auth
+
+| Method | Endpoint | Auth required | Description |
+|---|---|---|---|
+| `POST` | `/auth/register` | No | Create a new account |
+| `POST` | `/auth/token` | No | Log in and receive a JWT |
+| `GET` | `/me` | Yes | Get the current user |
+
+#### Register payload
+
+```json
+{ "email": "you@example.com", "password": "yourpassword" }
+```
+
+#### Token response
+
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
 
 ### Bookmarks
 
@@ -134,13 +171,13 @@ The API will be available at `http://localhost:8000`. Visit `http://localhost:80
 }
 ```
 
-Tags are referenced by name. New tag names are created automatically; existing ones are reused.
+Tags are referenced by name. New tag names are created automatically; existing ones are reused. Tags are scoped to the authenticated user.
 
 ### Tags
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/tags` | List all tags |
+| `GET` | `/tags` | List all tags for the current user |
 | `GET` | `/tags/{id}` | Get a single tag |
 
 ---
@@ -171,7 +208,7 @@ Models are defined in `src/bookie/models.py` and are auto-imported by Alembic.
 
 ### Adding dependencies
 
-1. Find the package: `nix search nixpkgs python3Packages.<name>`
+1. Find the package: `nix search nixpkgs python3Packages.<n>`
 2. Add it to `pythonEnv` in `flake.nix`
 3. Add it to `dependencies` in `pyproject.toml`
 4. Re-enter the shell: `exit`, then `nix develop`
@@ -184,12 +221,15 @@ Models are defined in `src/bookie/models.py` and are auto-imported by Alembic.
 bookie/
 ├── src/bookie/
 │   ├── main.py          # FastAPI app + router registration
-│   ├── models.py        # SQLAlchemy ORM models
+│   ├── models.py        # SQLAlchemy ORM models (User, Bookmark, Tag)
 │   ├── schemas.py       # Pydantic request/response schemas
 │   ├── crud.py          # Database operations
 │   ├── database.py      # Async engine, session, lifespan
 │   ├── settings.py      # Environment config (pydantic-settings)
+│   ├── security.py      # Password hashing and JWT encode/decode
+│   ├── dependencies.py  # get_current_user FastAPI dependency
 │   └── routes/
+│       ├── auth.py      # Register, login endpoints
 │       ├── bookmarks.py # Bookmark endpoints
 │       └── tags.py      # Tag endpoints
 ├── tests/               # Pytest test suite
@@ -201,3 +241,4 @@ bookie/
 ├── .env.example         # Environment variable template
 └── .pre-commit-config.yaml
 ```
+
