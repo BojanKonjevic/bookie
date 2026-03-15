@@ -30,15 +30,19 @@ async def create_user(session: AsyncSession, email: str, password: str) -> User:
     return user
 
 
-async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bookmark:
+async def create_bookmark(
+    session: AsyncSession, bookmark: BookmarkCreate, user_id: UUID
+) -> Bookmark:
     tag_names = set(bookmark.tags)
-    result = await session.execute(select(Tag).where(Tag.name.in_(tag_names)))
+    result = await session.execute(
+        select(Tag).where((Tag.name.in_(tag_names)), Tag.user_id == user_id)
+    )
     existing_tags = {tag.name: tag for tag in result.scalars()}
     tags = []
     for tag_name in tag_names:
         tag = existing_tags.get(tag_name)
         if not tag:
-            tag = Tag(name=tag_name)
+            tag = Tag(name=tag_name, user_id=user_id)
         tags.append(tag)
 
     db_bookmark = Bookmark(
@@ -47,6 +51,7 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
         description=bookmark.description,
         favorite=bookmark.favorite,
         tags=tags,
+        user_id=user_id,
     )
 
     session.add(db_bookmark)
@@ -61,13 +66,18 @@ async def create_bookmark(session: AsyncSession, bookmark: BookmarkCreate) -> Bo
 
 async def get_all_bookmarks(
     session: AsyncSession,
+    user_id: UUID,
     favorite: bool | None = None,
     tag_names: Sequence[str] | None = None,
     search: str | None = None,
     page: int = 1,
     limit: int = 10,
 ) -> Sequence[Bookmark]:
-    query = select(Bookmark).options(selectinload(Bookmark.tags))
+    query = (
+        select(Bookmark)
+        .where(Bookmark.user_id == user_id)
+        .options(selectinload(Bookmark.tags))
+    )
     if favorite is not None:
         query = query.where(Bookmark.favorite == favorite)
     if tag_names is not None:
@@ -83,19 +93,30 @@ async def get_all_bookmarks(
     return result.scalars().all()
 
 
-async def get_bookmark(session: AsyncSession, bookmark_id: UUID) -> Bookmark | None:
+async def get_bookmark(
+    session: AsyncSession, bookmark_id: UUID, user_id: UUID
+) -> Bookmark | None:
     result = await session.execute(
         select(Bookmark)
-        .where(Bookmark.id == bookmark_id)
+        .where((Bookmark.id == bookmark_id), (Bookmark.user_id == user_id))
         .options(selectinload(Bookmark.tags))
     )
     return result.scalar_one_or_none()
 
 
 async def update_bookmark(
-    session: AsyncSession, bookmark_id: UUID, bookmark_update: BookmarkUpdate
+    session: AsyncSession,
+    bookmark_id: UUID,
+    bookmark_update: BookmarkUpdate,
+    user_id: UUID,
 ) -> Bookmark | None:
-    db_bookmark = await session.get(Bookmark, bookmark_id)
+    db_bookmark = (
+        await session.execute(
+            select(Bookmark).where(
+                (Bookmark.id == bookmark_id), (Bookmark.user_id == user_id)
+            )
+        )
+    ).scalar_one_or_none()
     if not db_bookmark:
         return None
     update_data = bookmark_update.model_dump(exclude_unset=True)
@@ -105,13 +126,15 @@ async def update_bookmark(
     tags = update_data.pop("tags", None)
     if tags is not None:
         tag_names = set(tags)
-        result = await session.execute(select(Tag).where(Tag.name.in_(tag_names)))
+        result = await session.execute(
+            select(Tag).where(Tag.name.in_(tag_names), Tag.user_id == user_id)
+        )
         existing_tags = {tag.name: tag for tag in result.scalars()}
         new_tags = []
         for tag_name in tag_names:
             tag = existing_tags.get(tag_name)
             if not tag:
-                tag = Tag(name=tag_name)
+                tag = Tag(name=tag_name, user_id=user_id)
             new_tags.append(tag)
         db_bookmark.tags = new_tags
 
@@ -122,29 +145,33 @@ async def update_bookmark(
     return db_bookmark
 
 
-async def delete_bookmark(session: AsyncSession, bookmark_id: UUID) -> bool:
+async def delete_bookmark(
+    session: AsyncSession, bookmark_id: UUID, user_id: UUID
+) -> bool:
     db_bookmark = (
         await session.execute(
             select(Bookmark)
-            .where(Bookmark.id == bookmark_id)
+            .where((Bookmark.id == bookmark_id), (Bookmark.user_id == user_id))
             .options(selectinload(Bookmark.tags).selectinload(Tag.bookmarks))
         )
     ).scalar_one_or_none()
     if not db_bookmark:
         return False
     for tag in db_bookmark.tags:
-        if len(tag.bookmarks) == 1:
+        if len([b for b in tag.bookmarks if b.user_id == user_id]) == 1:
             await session.delete(tag)
     await session.delete(db_bookmark)
     await session.commit()
     return True
 
 
-async def get_all_tags(session: AsyncSession) -> Sequence[Tag]:
-    result = await session.execute(select(Tag))
+async def get_all_tags(session: AsyncSession, user_id: UUID) -> Sequence[Tag]:
+    result = await session.execute(select(Tag).where(Tag.user_id == user_id))
     return result.scalars().all()
 
 
-async def get_tag(session: AsyncSession, tag_id: UUID) -> Tag | None:
-    result = await session.execute(select(Tag).where(Tag.id == tag_id))
+async def get_tag(session: AsyncSession, tag_id: UUID, user_id: UUID) -> Tag | None:
+    result = await session.execute(
+        select(Tag).where((Tag.id == tag_id), (Tag.user_id == user_id))
+    )
     return result.scalar_one_or_none()

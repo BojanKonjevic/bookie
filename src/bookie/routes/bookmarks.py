@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bookie import crud, schemas
 from bookie.database import get_session
-from bookie.models import Bookmark
+from bookie.dependencies import get_current_user
+from bookie.models import Bookmark, User
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
@@ -19,15 +20,20 @@ async def get_all_bookmarks(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Sequence[Bookmark]:
-    return await crud.get_all_bookmarks(session, favorite, tags, search, page, limit)
+    return await crud.get_all_bookmarks(
+        session, current_user.id, favorite, tags, search, page, limit
+    )
 
 
 @router.get("/{bookmark_id}", response_model=schemas.BookmarkRead)
 async def get_bookmark(
-    bookmark_id: UUID, session: AsyncSession = Depends(get_session)
+    bookmark_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Bookmark | None:
-    bookmark = await crud.get_bookmark(session, bookmark_id)
+    bookmark = await crud.get_bookmark(session, bookmark_id, current_user.id)
     if bookmark is None:
         raise HTTPException(status_code=404, detail="Bookmark doesn't exist")
     return bookmark
@@ -35,19 +41,23 @@ async def get_bookmark(
 
 @router.post("", response_model=schemas.BookmarkRead, status_code=201)
 async def create_bookmark(
-    bookmark: schemas.BookmarkCreate, session: AsyncSession = Depends(get_session)
+    bookmark: schemas.BookmarkCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Bookmark:
     try:
-        return await crud.create_bookmark(session, bookmark)
+        return await crud.create_bookmark(session, bookmark, current_user.id)
     except ValueError as err:
         raise HTTPException(status_code=409, detail=str(err)) from err
 
 
 @router.delete("/{bookmark_id}", status_code=204)
 async def delete_bookmark(
-    bookmark_id: UUID, session: AsyncSession = Depends(get_session)
+    bookmark_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    status = await crud.delete_bookmark(session, bookmark_id)
+    status = await crud.delete_bookmark(session, bookmark_id, current_user.id)
     if not status:
         raise HTTPException(status_code=404, detail="Bookmark doesn't exist")
 
@@ -57,8 +67,11 @@ async def update_bookmark(
     bookmark_id: UUID,
     bookmark_update: schemas.BookmarkUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> Bookmark | None:
-    bookmark = await crud.update_bookmark(session, bookmark_id, bookmark_update)
+    bookmark = await crud.update_bookmark(
+        session, bookmark_id, bookmark_update, current_user.id
+    )
     if bookmark is None:
         raise HTTPException(status_code=404, detail="Bookmark doesn't exist")
     return bookmark
