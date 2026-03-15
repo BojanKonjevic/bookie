@@ -38,9 +38,6 @@
           mypy
           ipython
 
-          typer
-          rich
-
           passlib
           bcrypt
           python-jose
@@ -79,11 +76,6 @@
           echo "  just upgrade                 apply migrations"
           echo "  just downgrade               roll back one step"
           echo "  just db-drop                 delete the local database"
-          echo
-          echo "CLI:"
-          echo "  python cli.py --help               show all commands"
-          echo "  python cli.py ping                 check the API is up"
-          echo "  python cli.py bookmarks list       list bookmarks"
           echo
           exec zsh
         '';
