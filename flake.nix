@@ -38,9 +38,14 @@
           mypy
           ipython
 
-          # CLI
           typer
           rich
+
+          passlib
+          bcrypt
+          python-jose
+          email-validator
+          python-multipart
         ]);
     in {
       devShells.default = pkgs.mkShell {
