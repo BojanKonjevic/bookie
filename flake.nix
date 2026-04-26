@@ -76,8 +76,10 @@
           echo "  just upgrade                 apply migrations"
           echo "  just downgrade               roll back one step"
           echo "  just db-drop                 delete the local database"
+          echo "  just db-drop-test            delete the test db"
+          echo "  just db-create               create both dbs + migrate"
+          echo "  just db-reset                recreate both dbs + migrate"
           echo
-          exec zsh
         '';
       };
     });

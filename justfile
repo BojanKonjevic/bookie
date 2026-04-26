@@ -19,3 +19,12 @@ downgrade:
     alembic downgrade -1
 db-drop:
     dropdb bookie
+db-drop-test:
+    dropdb bookie_test
+db-create:
+    createdb bookie && createdb bookie_test && just upgrade
+db-reset:
+    -dropdb bookie
+    -dropdb bookie_test
+    createdb bookie && createdb bookie_test && just upgrade
+
